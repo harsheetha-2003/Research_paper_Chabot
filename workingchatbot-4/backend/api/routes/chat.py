@@ -76,13 +76,14 @@
 #             "question": request.question
 #         }
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from orchestrator import generate_answer
 from database.schema import SessionLocal, Question, Document, User
 from services.retriever import retrieve_chunks
 from services.citation_mapper import map_citations  # Optional if you want to use your own mapper
 from services.chat_history import load_chat_history, save_chat_entry
+from services.session import get_current_user_email
 import asyncio
 import time
 
@@ -91,24 +92,18 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     doc_id: str
     question: str
-    user_email: str
 
-class ChatResponse(BaseModel):
-    query: str
-    answer: str
-    citations: list
-    doc_id: str
-    question: str
-    cached: bool
-
-@router.post("/", response_model=ChatResponse)
-async def ask_question(request: ChatRequest):
+@router.post("/")
+async def ask_question(chat_request: ChatRequest, request: Request):
     try:
-        print(f"[DEBUG] Chat request received - doc_id: {request.doc_id}, question: {request.question[:50]}...")
+        print(f"[DEBUG] Chat request received - doc_id: {chat_request.doc_id}, question: {chat_request.question[:50]}...")
         
-        doc_id = request.doc_id
-        question = request.question
-        user_email = request.user_email
+        doc_id = chat_request.doc_id
+        question = chat_request.question
+        
+        # Get user email from session (requires authentication)
+        user_email = get_current_user_email(request)
+        print(f"[DEBUG] User email from session: {user_email}")
 
         # Validate user exists
         db = SessionLocal()
@@ -116,7 +111,7 @@ async def ask_question(request: ChatRequest):
         if not user:
             db.close()
             print(f"[ERROR] User not found: {user_email}")
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=401, detail={"error": {"message": "User not found.", "code": 401}})
         
         # Validate user has access to this document
         document = db.query(Document).filter(
@@ -152,16 +147,18 @@ async def ask_question(request: ChatRequest):
         print(f"[DEBUG] Question saved to database")
 
         # ✅ Return response
-        response = ChatResponse(
-            query=question,
-            answer=final_answer,
-            citations=[],
-            doc_id=doc_id,
-            question=question,
-            cached=False
-        )
+        response = {
+            "query": question,
+            "answer": final_answer,
+            "citations": [],
+            "doc_id": doc_id,
+            "question": question,
+            "cached": False
+        }
         print(f"[DEBUG] Returning response")
         return response
+
+
 
     except HTTPException:
         raise
@@ -172,8 +169,7 @@ async def ask_question(request: ChatRequest):
         return {
             "error": "Internal Server Error",
             "details": str(e),
-            "doc_id": request.doc_id,
-            "query": request.question,
-            "question": request.question
+            "doc_id": chat_request.doc_id,
+            "query": chat_request.question,
+            "question": chat_request.question
         }
-
