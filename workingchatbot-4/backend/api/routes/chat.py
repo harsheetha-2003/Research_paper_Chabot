@@ -83,6 +83,8 @@ from database.schema import SessionLocal, Question, Document, User
 from services.retriever import retrieve_chunks
 from services.citation_mapper import map_citations  # Optional if you want to use your own mapper
 from services.chat_history import load_chat_history, save_chat_entry
+import asyncio
+import time
 
 router = APIRouter()
 
@@ -91,9 +93,19 @@ class ChatRequest(BaseModel):
     question: str
     user_email: str
 
-@router.post("/")
+class ChatResponse(BaseModel):
+    query: str
+    answer: str
+    citations: list
+    doc_id: str
+    question: str
+    cached: bool
+
+@router.post("/", response_model=ChatResponse)
 async def ask_question(request: ChatRequest):
     try:
+        print(f"[DEBUG] Chat request received - doc_id: {request.doc_id}, question: {request.question[:50]}...")
+        
         doc_id = request.doc_id
         question = request.question
         user_email = request.user_email
@@ -103,6 +115,7 @@ async def ask_question(request: ChatRequest):
         user = db.query(User).filter(User.email == user_email).first()
         if not user:
             db.close()
+            print(f"[ERROR] User not found: {user_email}")
             raise HTTPException(status_code=404, detail="User not found")
         
         # Validate user has access to this document
@@ -112,67 +125,23 @@ async def ask_question(request: ChatRequest):
         ).first()
         if not document:
             db.close()
+            print(f"[ERROR] Document access denied - doc_id: {doc_id}, user: {user_email}")
             raise HTTPException(status_code=403, detail="Access denied. Document not found or you don't have permission to access it.")
         
         db.close()
+        print(f"[DEBUG] User and document validation passed")
 
-        # ✅ Check if answer already exists in history
-        history = load_chat_history(doc_id)
-        for entry in history:
-            if entry["query"] == question:
-                return {
-                    "answer": entry["answer"],
-                    "citations": [],  # Optional: you can store citations in history if needed
-                    "doc_id": doc_id,
-                    "question": question,
-                    "cached": True
-                }
-
-        # ✅ Updated retrieval logic
+        # ✅ Retrieve relevant chunks from document
+        print(f"[DEBUG] Calling retrieve_chunks for doc_id: {doc_id}")
         retrieval = retrieve_chunks(doc_id, question)
-        chunks = retrieval.get("chunks", [])
         fallback_answer = retrieval.get("answer", "")
-        citations = retrieval.get("citations", [])
+        
+        print(f"[DEBUG] Retrieval complete - answer length: {len(fallback_answer)}")
 
-        if not chunks:
-            return {
-                "error": "No relevant content found for this document ID.",
-                "doc_id": doc_id,
-                "question": question
-            }
-
-        # ✅ Build context from chunks
-        context = "\n\n".join([chunk["content"] for chunk in chunks])
-
-        # ✅ Prompt for LLM
-        prompt = f"""You are a research assistant. Answer the question using only the context below. 
-        Answer in at least a few sentances.
-        Do not give one sentence or two answers. Give a proper descriptive answer that match the context inside the paper. 
-        If i ask you to summarize, then summarize with at least 7-8 lines instead of a brief answer. 
-
-        If a specific number of characters or lines are asked in the question, then keep the answer in that boundaries only. 
-        Do not exceed ONLY when asked. Otherwise answer in more than a few sentences
-
-Context:
-{context}
-
-Question: {question}
-"""
-
-        # ✅ Generate answer using LLM
-        final_answer = generate_answer(prompt)
-
-        # ✅ Fallback to plain summary if LLM fails
-        if not final_answer:
-            final_answer = fallback_answer
-
-        # ✅ Ensure doc_id and question are included in fallback answer
-        if final_answer == fallback_answer:
-            final_answer = (
-                f"Document ID: {doc_id}\n"
-                f"Question: {question}\n\n"
-                f"{fallback_answer}"
-            )
+        # ✅ Use the retriever answer directly (it handles all the processing)
+        final_answer = fallback_answer if fallback_answer else "I couldn't find relevant information in the document. Please try rephrasing your question."
+        
+        print(f"[DEBUG] Final answer ready, length: {len(final_answer)}")
 
         # ✅ Save to database
         db = SessionLocal()
@@ -180,24 +149,31 @@ Question: {question}
         db.add(q)
         db.commit()
         db.close()
+        print(f"[DEBUG] Question saved to database")
 
-        # ✅ Save to chat history
-        save_chat_entry(doc_id, question, final_answer)
+        # ✅ Return response
+        response = ChatResponse(
+            query=question,
+            answer=final_answer,
+            citations=[],
+            doc_id=doc_id,
+            question=question,
+            cached=False
+        )
+        print(f"[DEBUG] Returning response")
+        return response
 
-        # ✅ Return structured response
-        return {
-            "answer": final_answer,
-            "citations": citations,
-            "doc_id": doc_id,
-            "question": question,
-            "cached": False
-        }
-
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Chat error: {e}")
+        print(f"[ERROR] Chat error: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             "error": "Internal Server Error",
             "details": str(e),
             "doc_id": request.doc_id,
+            "query": request.question,
             "question": request.question
         }
+

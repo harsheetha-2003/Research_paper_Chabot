@@ -119,10 +119,11 @@ async def delete_document(
             os.remove(history_path)
             history_deleted = True
         
-        # Delete uploaded file
+        # Delete uploaded file - fix the conditional check
         file_deleted = False
-        if document.filepath and os.path.exists(document.filepath):
-            os.remove(document.filepath)
+        filepath = getattr(document, 'filepath', None)
+        if filepath and os.path.exists(str(filepath)):
+            os.remove(str(filepath))
             file_deleted = True
         
         # Delete embeddings index
@@ -137,7 +138,7 @@ async def delete_document(
         return {
             "message": "Document and all associated data deleted successfully",
             "doc_id": doc_id,
-            "filename": document.filename,
+            "filename": getattr(document, 'filename', 'Unknown'),
             "user_email": user_email,
             "deleted_questions": deleted_questions,
             "deleted_suggested_questions": deleted_suggested,
@@ -189,8 +190,8 @@ async def rename_document(request: RenameDocumentRequest):
             raise HTTPException(status_code=400, detail="You already have a document with this filename")
         
         # Update filename
-        old_filename = document.filename
-        document.filename = request.new_filename
+        old_filename = str(document.filename)
+        setattr(document, 'filename', request.new_filename)
         db.commit()
         db.close()
         

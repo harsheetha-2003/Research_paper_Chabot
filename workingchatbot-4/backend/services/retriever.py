@@ -51,46 +51,72 @@ def get_relevant_section(text, query, chunks):
     return text[-1000:].strip()
  
 def retrieve_chunks(doc_id, query, exact_match=False):
-    embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
- 
-    vectorstore = FAISS.load_local(
-        f"data/embeddings/{doc_id}_index",
-        embedder,
-        allow_dangerous_deserialization=True
-    )
- 
-    # ✅ Retrieve top matching documents
-    docs = vectorstore.similarity_search(query, k=15)
- 
-    chunks = [
-        {
-            "content": doc.page_content,
-            "metadata": doc.metadata
+    try:
+        print(f"[DEBUG] Starting retrieval for doc_id: {doc_id}, query: {query[:50]}...")
+        embedder = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        
+        embedding_path = f"data/embeddings/{doc_id}_index"
+        print(f"[DEBUG] Loading embeddings from: {embedding_path}")
+        
+        vectorstore = FAISS.load_local(
+            embedding_path,
+            embedder,
+            allow_dangerous_deserialization=True
+        )
+        
+        # ✅ Retrieve top matching documents
+        print("[DEBUG] Performing similarity search...")
+        docs = vectorstore.similarity_search(query, k=15)
+        print(f"[DEBUG] Found {len(docs)} similar documents")
+        
+        chunks = [
+            {
+                "content": doc.page_content,
+                "metadata": doc.metadata
+            }
+            for doc in docs
+        ]
+        
+        # ✅ Combine all chunk content into one context
+        full_context = "\n\n".join([doc.page_content for doc in docs])
+        print(f"[DEBUG] Full context length: {len(full_context)} characters")
+        
+        # ✅ Apply section-aware filtering or semantic fallback
+        filtered_context = get_relevant_section(full_context, query, chunks)
+        print(f"[DEBUG] Filtered context length: {len(filtered_context)} characters")
+        
+        # ✅ Build answer
+        text = filtered_context.strip()
+        text = text.replace("\n", " ").replace("  ", " ")
+        text = re.sub(r"\[\d+(,\d+)*\]", "", text)
+        
+        # ✅ Out-of-scope detection with better handling
+        if len(text) < 50 or "not found" in text.lower():
+            answer = "I couldn't find specific information about your question in the uploaded document. Please try rephrasing your question or ask about different aspects of the document."
+        else:
+            # Provide a more comprehensive answer
+            answer = text[:1500] + "..." if len(text) > 1500 else text
+        
+        print(f"[DEBUG] Generated answer length: {len(answer)} characters")
+        
+        # ✅ Save to chat history
+        save_chat_entry(doc_id, query, answer)
+        print("[DEBUG] Chat entry saved successfully")
+        
+        return {
+            "chunks": chunks,
+            "answer": answer
         }
-        for doc in docs
-    ]
- 
-    # ✅ Combine all chunk content into one context
-    full_context = "\n\n".join([doc.page_content for doc in docs])
- 
-    # ✅ Apply section-aware filtering or semantic fallback
-    filtered_context = get_relevant_section(full_context, query, chunks)
- 
-    # ✅ Build answer
-    text = filtered_context.strip()
-    text = text.replace("\n", " ").replace("  ", " ")
-    text = re.sub(r"\[\d+(,\d+)*\]", "", text)
- 
-    # ✅ Out-of-scope detection
-    if len(text) < 100 or "not found" in text.lower():
-        answer = "This content is not present in the uploaded research paper."
-    else:
-        answer = text[:1000] + "..." if len(text) > 1000 else text
- 
-    # ✅ Save to chat history
-    save_chat_entry(doc_id, query, answer)
- 
-    return {
-        "chunks": chunks,
-        "answer": answer
-    }
+        
+    except FileNotFoundError as e:
+        print(f"[ERROR] Embeddings not found for doc_id {doc_id}: {e}")
+        return {
+            "chunks": [],
+            "answer": "The document embeddings could not be found. Please re-upload the document and try again."
+        }
+    except Exception as e:
+        print(f"[ERROR] Retrieval failed for doc_id {doc_id}: {e}")
+        return {
+            "chunks": [],
+            "answer": "An error occurred while processing your question. Please try again or contact support if the issue persists."
+        }

@@ -73,6 +73,76 @@ body {
 .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .gap-4 { gap: 1rem; }
 .gap-6 { gap: 1.5rem; }
+
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--warm-cream);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-brown);
+  border-radius: 4px;
+  border: 1px solid var(--warm-cream);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-orange);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-brown) var(--warm-cream);
+}
+
+/* Ensure proper overflow handling */
+.overflow-y-auto {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-brown) var(--warm-cream);
+}
+
+.min-h-0 {
+  min-height: 0;
+}
+
+/* Fix flex container height issues */
+.flex-1 {
+  flex: 1 1 0%;
+}
+
+.flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+/* Responsive layout fixes for dashboard */
+@media (max-width: 1200px) {
+  .text-2xl { font-size: 1.5rem; }
+  .text-xl { font-size: 1.25rem; }
+  .text-lg { font-size: 1.125rem; }
+  .p-8 { padding: 1.5rem; }
+  .p-6 { padding: 1.25rem; }
+  .p-4 { padding: 1rem; }
+  .space-x-6 > * + * { margin-left: 1rem; }
+  .space-x-4 > * + * { margin-left: 0.75rem; }
+}
+
+@media (max-width: 1024px) {
+  .w-80 { width: 16rem; }
+  .w-72 { width: 14rem; }
+}
+
+@media (max-width: 768px) {
+  .w-80, .w-72 { width: 12rem; }
+  .text-base { font-size: 0.875rem; }
+  .text-sm { font-size: 0.8125rem; }
+}
 .gap-8 { gap: 2rem; }
 .gap-12 { gap: 3rem; }
 
@@ -516,3 +586,62 @@ body {
 }
 
 .cursor-pointer { cursor: pointer; }
+
+/* Enhanced Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 12px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--warm-cream);
+  border-radius: 6px;
+  border: 2px solid var(--soft-cream);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--primary-orange), var(--golden-yellow));
+  border-radius: 6px;
+  border: 2px solid var(--warm-cream);
+  transition: all 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--hover-orange), var(--primary-orange));
+  transform: scale(1.1);
+  border: 2px solid var(--soft-cream);
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: var(--primary-orange) var(--warm-cream);
+}
+
+/* Animation classes for smooth transitions */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

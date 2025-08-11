@@ -124,6 +124,14 @@ class ResearchAnalyser {
         if (this.viewAllChatsBtn) {
             this.viewAllChatsBtn.addEventListener('click', () => this.showChatHistory());
         }
+        
+        // Document menu functionality
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('documentActionMenu');
+            if (menu && !menu.contains(e.target) && !e.target.closest('[onclick*="showDocumentMenu"]')) {
+                menu.classList.add('hidden');
+            }
+        });
 
         // Clear all chats (optional)
         if (this.clearAllBtn) {
@@ -231,34 +239,36 @@ class ResearchAnalyser {
         }
     }
 
-    showToast(message, isError = false) {
+    showToast(message, isError = false, duration = 4000) {
         const toast = isError ? this.errorToast : this.successToast;
         const messageElement = isError ? this.errorMessage : this.successMessage;
 
         if (messageElement && toast) {
-            messageElement.textContent = message;
+            messageElement.innerHTML = message.replace(/\n/g, '<br>');
             toast.classList.remove('translate-x-full');
 
             setTimeout(() => {
                 toast.classList.add('translate-x-full');
-            }, 4000);
+            }, duration);
         } else {
             // Create a simple notification if toast elements don't exist
-            this.createSimpleNotification(message, isError);
+            this.createSimpleNotification(message, isError, duration);
         }
     }
 
-    createSimpleNotification(message, isError = false) {
+    createSimpleNotification(message, isError = false, duration = 4000) {
         // Create a temporary notification
         const notification = document.createElement('div');
         notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm transition-transform transform translate-x-full ${
             isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
         }`;
         
+        const formattedMessage = message.replace(/\n/g, '<br>');
+        
         notification.innerHTML = `
-            <div class="flex items-center gap-2">
-                <i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i>
-                <span>${message}</span>
+            <div class="flex items-start gap-2">
+                <i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'} flex-shrink-0 mt-0.5"></i>
+                <span class="text-sm leading-relaxed">${formattedMessage}</span>
             </div>
         `;
         
@@ -277,7 +287,7 @@ class ResearchAnalyser {
                     notification.parentNode.removeChild(notification);
                 }
             }, 300);
-        }, 4000);
+        }, duration);
     }
 
     showUploadProgress(visible = true) {
@@ -343,8 +353,17 @@ class ResearchAnalyser {
                     this.renderDocuments();
                 }
             } else {
-                const errorMsg = result.error || result.detail || 'Upload failed. Please try again.';
-                this.showToast(errorMsg, true);
+                // Handle duplicate file error specifically with enhanced notification
+                if (result.error === "duplicate_file" || result.duplicate) {
+                    this.showToast(
+                        `Duplicate File Detected!\nFile: ${result.filename}\nDocument ID: ${result.doc_id}\nAlready uploaded on: ${new Date(result.upload_date).toLocaleDateString()}`,
+                        true,
+                        5000
+                    );
+                } else {
+                    const errorMsg = result.error || result.detail || 'Upload failed. Please try again.';
+                    this.showToast(errorMsg, true);
+                }
                 console.error('Upload failed:', result);
             }
         } catch (error) {
@@ -429,9 +448,9 @@ class ResearchAnalyser {
             }
 
             return `
-                <div class="bg-white rounded-xl p-4 hover:bg-gradient-to-r hover:from-golden-yellow/10 hover:to-primary-orange/10 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg border border-transparent hover:border-primary-orange/20 group ${this.currentDocId === doc.doc_id ? 'ring-2 ring-primary-orange ring-opacity-50' : ''}"
-                     onclick="if(window.researchAnalyser) window.researchAnalyser.selectDocument('${doc.doc_id}', '${doc.filename}')">
-                    <div class="flex items-center space-x-3">
+                <div class="bg-white rounded-xl p-4 hover:bg-gradient-to-r hover:from-golden-yellow/10 hover:to-primary-orange/10 cursor-pointer transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg border border-transparent hover:border-primary-orange/20 group relative ${this.currentDocId === doc.doc_id ? 'ring-2 ring-primary-orange ring-opacity-50' : ''}"
+                     data-doc-id="${doc.doc_id}" data-filename="${doc.filename}">
+                    <div class="flex items-center space-x-3" onclick="if(window.researchAnalyser) window.researchAnalyser.selectDocument('${doc.doc_id}', '${doc.filename}')">
                         <div class="w-10 h-10 bg-gradient-to-br ${iconColor} rounded-lg flex items-center justify-center shadow-md">
                             <i class="${iconClass} text-white"></i>
                         </div>
@@ -439,7 +458,11 @@ class ResearchAnalyser {
                             <p class="text-sm font-medium text-deep-brown group-hover:text-primary-orange transition-colors truncate">${doc.filename}</p>
                             <p class="text-xs text-warm-brown">${new Date(doc.upload_date).toLocaleDateString()}</p>
                         </div>
-                        <i class="fas fa-chevron-right text-warm-brown group-hover:text-primary-orange transition-colors"></i>
+                        <div class="flex items-center gap-1">
+                            <button class="p-2 hover:bg-primary-orange/20 rounded-lg transition-colors group/btn" onclick="event.stopPropagation(); window.researchAnalyser.showDocumentMenu(event, '${doc.doc_id}', '${doc.filename}')" title="Document Options">
+                                <i class="fas fa-ellipsis-v text-warm-brown group-hover/btn:text-primary-orange text-sm"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -465,10 +488,8 @@ class ResearchAnalyser {
         // Update document selection in UI
         this.renderDocuments();
 
-        // Load chat history for this document if the method exists
-        if (this.loadChatHistory) {
-            await this.loadChatHistory(docId);
-        }
+        // Load chat history for this document
+        await this.loadChatHistory(docId);
 
         // Close sidebar on mobile after selection
         if (window.innerWidth < 768) {
@@ -478,24 +499,31 @@ class ResearchAnalyser {
 
     async loadChatHistory(docId) {
         try {
-            const response = await fetch(`${this.baseURL}/chat-history?doc_id=${docId}`);
+            const userEmail = this.user ? this.user.email : 'test@example.com'; // Get user email from session
+            const response = await fetch(`${this.baseURL}/chat-history?doc_id=${docId}&user_email=${encodeURIComponent(userEmail)}`, {
+                credentials: 'include'
+            });
             const result = await response.json();
 
-            this.messagesContainer.innerHTML = '';
+            if (this.messagesContainer) {
+                this.messagesContainer.innerHTML = '';
 
-            if (result.chat_history && result.chat_history.length > 0) {
-                result.chat_history.forEach(entry => {
-                    this.addMessage(entry.query, 'user', false, new Date(entry.created_at));
-                    this.addMessage(entry.answer, 'assistant', false, new Date(entry.created_at));
-                });
-            } else {
-                this.showWelcomeMessage();
+                if (result.chat_history && result.chat_history.length > 0) {
+                    result.chat_history.forEach(entry => {
+                        this.addMessage(entry.query, 'user', false, new Date(entry.created_at));
+                        this.addMessage(entry.answer, 'assistant', false, new Date(entry.created_at));
+                    });
+                } else {
+                    this.showWelcomeMessage();
+                }
+
+                this.scrollToBottom();
             }
-
-            this.scrollToBottom();
         } catch (error) {
             console.error('Error loading chat history:', error);
-            this.showWelcomeMessage();
+            if (this.messagesContainer) {
+                this.showWelcomeMessage();
+            }
         }
     }
 
@@ -525,18 +553,38 @@ class ResearchAnalyser {
         this.showTypingIndicator(true);
 
         try {
+            const userEmail = this.user ? this.user.email : 'test@example.com'; // Get user email from session
             const response = await fetch(`${this.baseURL}/chat/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include', // Include cookies for session authentication
                 body: JSON.stringify({
                     doc_id: this.currentDocId,
-                    question: message
+                    question: message,
+                    user_email: userEmail
                 })
             });
 
             const result = await response.json();
+    // Ensure typing indicator is hidden
+    this.showTypingIndicator(false);
+
+    // Display answer if present
+    if (result.answer) {
+        this.addMessage(result.answer, 'assistant');
+    } else if (result.error) {
+        this.addMessage(`Error: ${result.error}`, 'assistant', true);
+    } else {
+        this.addMessage('No answer received from the server.', 'assistant', true);
+    }
+
+    // Optionally show citations if available
+    if (result.citations && Array.isArray(result.citations) && result.citations.length > 0) {
+        this.addCitations(result.citations);
+    }
+    
 
             // Hide typing indicator
             this.showTypingIndicator(false);
@@ -673,6 +721,98 @@ class ResearchAnalyser {
         `;
 
         this.renderDocuments();
+    }
+
+    showDocumentMenu(event, docId, filename) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const menu = document.getElementById('documentActionMenu');
+        if (!menu) return;
+        
+        // Position menu near the clicked button
+        const rect = event.target.getBoundingClientRect();
+        menu.style.left = `${rect.left - 150}px`;
+        menu.style.top = `${rect.bottom + 5}px`;
+        menu.classList.remove('hidden');
+        
+        // Store current document info for menu actions
+        menu.setAttribute('data-doc-id', docId);
+        menu.setAttribute('data-filename', filename);
+        
+        // Update menu event listeners
+        const chatBtn = document.getElementById('chatWithDoc');
+        const historyBtn = document.getElementById('viewHistory');
+        const deleteBtn = document.getElementById('deleteDoc');
+        
+        if (chatBtn) {
+            chatBtn.onclick = () => {
+                this.selectDocument(docId, filename);
+                menu.classList.add('hidden');
+            };
+        }
+        
+        if (historyBtn) {
+            historyBtn.onclick = () => {
+                this.showChatHistoryForDocument(docId, filename);
+                menu.classList.add('hidden');
+            };
+        }
+        
+        if (deleteBtn) {
+            deleteBtn.onclick = () => {
+                this.deleteDocument(docId, filename);
+                menu.classList.add('hidden');
+            };
+        }
+    }
+    
+    async showChatHistoryForDocument(docId, filename) {
+        try {
+            const userEmail = this.user ? this.user.email : 'test@example.com';
+            const response = await fetch(`${this.baseURL}/chat-history?doc_id=${docId}&user_email=${encodeURIComponent(userEmail)}`, {
+                credentials: 'include'
+            });
+            const result = await response.json();
+            
+            // Create a modal to display chat history
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+                    <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                        <h3 class="text-lg font-semibold">Chat History: ${filename}</h3>
+                        <button class="text-gray-400 hover:text-gray-600" onclick="this.closest('.fixed').remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4">
+                        ${result.chat_history && result.chat_history.length > 0 
+                            ? result.chat_history.map(entry => `
+                                <div class="mb-4 p-3 border rounded-lg">
+                                    <div class="mb-2 font-medium text-blue-600">Q: ${entry.query}</div>
+                                    <div class="text-gray-700">${entry.answer}</div>
+                                    <div class="text-xs text-gray-400 mt-2">${new Date(entry.created_at).toLocaleString()}</div>
+                                </div>
+                            `).join('')
+                            : '<p class="text-gray-500 text-center py-8">No chat history found for this document.</p>'
+                        }
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        } catch (error) {
+            console.error('Error loading chat history:', error);
+            this.showToast('Failed to load chat history', true);
+        }
+    }
+    
+    async deleteDocument(docId, filename) {
+        if (confirm(`Are you sure you want to delete "${filename}"? This action cannot be undone.`)) {
+            this.showToast('Document deletion is not implemented yet.', true);
+            // TODO: Implement delete functionality when backend endpoint is available
+        }
     }
 
     async exportChat() {

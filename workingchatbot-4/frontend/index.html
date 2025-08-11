@@ -50,14 +50,34 @@
             30% { transform: translateY(-10px); }
         }
         .scrollbar-thin::-webkit-scrollbar {
-            width: 4px;
+            width: 6px;
         }
         .scrollbar-thin::-webkit-scrollbar-track {
             background: #F5E8D3;
+            border-radius: 3px;
         }
         .scrollbar-thin::-webkit-scrollbar-thumb {
             background: #D4A574;
-            border-radius: 2px;
+            border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #B5651D;
+        }
+        
+        /* Custom scrollbar styles for dashboard */
+        .scrollbar-thumb-primary-orange::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollbar-thumb-primary-orange::-webkit-scrollbar-track {
+            background: #F5E8D3;
+            border-radius: 3px;
+        }
+        .scrollbar-thumb-primary-orange::-webkit-scrollbar-thumb {
+            background: rgba(200, 119, 62, 0.3);
+            border-radius: 3px;
+        }
+        .scrollbar-thumb-primary-orange::-webkit-scrollbar-thumb:hover {
+            background: rgba(200, 119, 62, 0.6);
         }
         .message-bubble {
             animation: fadeInUp 0.3s ease-out;
