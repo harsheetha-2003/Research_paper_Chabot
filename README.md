@@ -109,9 +109,3 @@ workingchatbot-4/
 - Role-based access control
 
 ---
-
-## Author
-
-**Harsheetha V P**
-
-Applied AI Engineer | AI Solutions | Python
