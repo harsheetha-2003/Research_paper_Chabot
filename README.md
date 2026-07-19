@@ -1,10 +1,10 @@
- # 📄 Research Paper AI Chatbot
+# 📄 Research Paper AI Chatbot
 
 An AI-powered web application that enables users to upload research papers and ask questions in natural language using Retrieval-Augmented Generation (RAG).
 
 ---
 
-# Problem Statement
+## Problem Statement
 
 Research papers are often long and difficult to navigate. Finding specific information requires manually reading multiple sections, making literature review and knowledge extraction time-consuming.
 
@@ -12,7 +12,7 @@ This project was developed to simplify research paper exploration by allowing us
 
 ---
 
-# Solution
+## Solution
 
 The application processes uploaded PDF research papers, converts them into semantic embeddings, retrieves the most relevant content using FAISS, and generates context-aware answers using Large Language Models (LLMs).
 
@@ -20,7 +20,7 @@ The project includes a complete web application with user authentication, docume
 
 ---
 
-# Features
+## Features
 
 - User registration and login
 - Upload research papers (PDF)
@@ -34,9 +34,9 @@ The project includes a complete web application with user authentication, docume
 
 ---
 
-# Tech Stack
+## Tech Stack
 
-# Frontend
+### Frontend
 - JavaScript
 - HTML
 - CSS
@@ -47,7 +47,7 @@ The project includes a complete web application with user authentication, docume
 - SQLAlchemy
 - SQLite
 
-# AI & NLP
+### AI & NLP
 - LangChain
 - FAISS
 - Sentence Transformers
@@ -56,7 +56,7 @@ The project includes a complete web application with user authentication, docume
 
 ---
 
-# Workflow
+## Workflow
 
 1. User uploads a research paper.
 2. The document is parsed and divided into chunks.
@@ -68,7 +68,7 @@ The project includes a complete web application with user authentication, docume
 
 ---
 
-# Skills Demonstrated
+## Skills Demonstrated
 
 - Retrieval-Augmented Generation (RAG)
 - AI Application Development
@@ -83,7 +83,7 @@ The project includes a complete web application with user authentication, docume
 
 ---
 
-# Folder Structure
+## Folder Structure
 
 ```
 workingchatbot-4/
@@ -99,7 +99,7 @@ workingchatbot-4/
 
 ---
 
-# Future Improvements
+## Future Improvements
 
 - Multi-document search
 - Source citation highlighting
@@ -110,4 +110,8 @@ workingchatbot-4/
 
 ---
 
+## Author
 
+**Harsheetha V P**
+
+Applied AI Engineer | AI Solutions | Python
