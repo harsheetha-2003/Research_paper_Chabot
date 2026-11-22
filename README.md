@@ -104,7 +104,6 @@ workingchatbot-4/
 - Multi-document search
 - Source citation highlighting
 - OCR support for scanned PDFs
-- Cloud deployment (AWS)
 - Streaming responses
 - Role-based access control
 
