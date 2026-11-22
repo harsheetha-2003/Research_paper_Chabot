@@ -57,6 +57,7 @@ The project includes a complete web application with user authentication, docume
 ---
 
 ## Workflow
+[![Architecture diagram of harsheetha-2003/research_paper_chabot](https://gitdiagram.com/harsheetha-2003/research_paper_chabot/diagram.png)](https://gitdiagram.com/harsheetha-2003/research_paper_chabot?utm_source=readme&utm_medium=picture)
 
 1. User uploads a research paper.
 2. The document is parsed and divided into chunks.
